@@ -12,7 +12,7 @@ declare module 'koishi' {
   }
 }
 
-export const name = ['touchgal', 'gameCache']
+export const name = 'checkgal'
 export const inject = ['touchgal', 'gameCache']
 
 export function apply(ctx: Context, config: Config) {

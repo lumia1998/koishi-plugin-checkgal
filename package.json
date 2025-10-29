@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-checkgal",
-  "version": "1.4.3",
-  "description": "个人测试请勿使用",
+  "version": "1.4.5",
+  "description": "基于TouchGal API的Galgame信息查询与下载插件",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -16,7 +16,7 @@
     "plugin",
     "galgame"
   ],
-  "author": "Roo",
+  "author": "lumiawang",
   "license": "AGPL-3.0",
   "koishi": {
     "name": "checkgal"
