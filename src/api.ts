@@ -2,22 +2,14 @@ import { Context } from 'koishi'
 import { GameInfo, DownloadResource } from './types'
 import { Config } from './config'
 import sharp from 'sharp'
-import * as path from 'path'
-import * as crypto from 'crypto'
-import { promises as fs } from 'fs'
 
 export class TouchGalAPI {
   private http
   private logger
-  private tempDir: string
 
   constructor(ctx: Context) {
     this.http = ctx.http
     this.logger = ctx.logger('checkgal-api')
-    this.tempDir = path.join(ctx.app.baseDir, 'data', 'temp', 'checkgal')
-    ctx.on('ready', async () => {
-      await fs.mkdir(this.tempDir, { recursive: true })
-    })
   }
 
   async searchGame(keyword: string, config: Config): Promise<GameInfo[]> {
@@ -75,7 +67,7 @@ export class TouchGalAPI {
     }
   }
 
-  async downloadAndConvertImage(url: string): Promise<string | null> {
+  async downloadAndConvertImage(url: string): Promise<Buffer | null> {
     if (!url) return null
     try {
       const response = await this.http.get(url, {
@@ -83,15 +75,7 @@ export class TouchGalAPI {
       })
       if (!(response instanceof ArrayBuffer)) return null
 
-      const imageBuffer = await sharp(Buffer.from(response)).jpeg().toBuffer()
-
-      const hash = crypto.createHash('md5').update(url).digest('hex')
-      const fileName = `${hash}.jpg`
-      const filePath = path.join(this.tempDir, fileName)
-      await fs.writeFile(filePath, imageBuffer)
-
-      // 返回绝对文件路径的 file:// URL
-      return `file://${filePath}`
+      return sharp(Buffer.from(response)).jpeg().toBuffer()
     } catch (error) {
       this.logger.error(`Failed to download or convert image from ${url}:`, error)
       return null

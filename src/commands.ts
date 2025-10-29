@@ -30,19 +30,9 @@ export function apply(ctx: Context, config: Config) {
       // 缓存结果
       results.forEach(game => ctx.gameCache.set(game.id, game))
 
-      // 并发下载并转换所有图片
-      const imagePaths = await Promise.all(
-        results.map(game => ctx.touchgal.downloadAndConvertImage(game.banner))
-      )
-
-      const forwardMessages = results.map((game, index) => {
-        const imagePath = imagePaths[index]
-        const imageElement = imagePath
-          ? h('image', { url: imagePath })
-          : h('text', { content: '封面图加载失败' })
-
+      // 仅在合并转发中发送文本信息
+      const forwardMessages = results.map(game => {
         const content = [
-          imageElement,
           `ID: ${game.id}`,
           `名称: ${game.name}`,
           `平台: ${game.platform.join(', ')}`,
@@ -52,6 +42,15 @@ export function apply(ctx: Context, config: Config) {
       })
 
       await session.send(h('message', { forward: true }, forwardMessages))
+      await session.send('封面图将单独发送：')
+
+      // 单独逐张发送图片
+      for (const game of results) {
+        const imageBuffer = await ctx.touchgal.downloadAndConvertImage(game.banner)
+        if (imageBuffer) {
+          await session.send(h('image', { src: imageBuffer, mime: 'image/jpeg' }))
+        }
+      }
     })
 
   ctx.command('下载gal <id:number>', '获取Galgame下载地址')
@@ -80,13 +79,14 @@ export function apply(ctx: Context, config: Config) {
       }
 
       const gameTitle = gameInfo ? `游戏: ${gameInfo.name} (ID: ${id})` : `游戏ID: ${id}`
-      const imagePath = gameInfo ? await ctx.touchgal.downloadAndConvertImage(gameInfo.banner) : null
-      const imageElement = imagePath
-        ? h('image', { url: imagePath })
-        : h('text', { content: gameInfo ? '封面图加载失败' : '' })
+      const imageBuffer = gameInfo ? await ctx.touchgal.downloadAndConvertImage(gameInfo.banner) : null
+
+      // 对于单条消息，直接发送 Buffer 是最高效的
+      if (imageBuffer) {
+        await session.send(h('image', { src: imageBuffer, mime: 'image/jpeg' }))
+      }
 
       const header = [
-        imageElement,
         gameTitle,
         `共找到 ${downloads.length} 个下载资源：`,
       ].filter(Boolean).join('\n')
