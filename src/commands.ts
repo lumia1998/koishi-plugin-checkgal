@@ -2,20 +2,15 @@ import { Context, h } from 'koishi'
 import { Config } from './config'
 import { TouchGalAPI } from './api'
 import { GameCache } from './cache'
-import { GameInfo } from './types'
 
-// 注册服务
-declare module 'koishi' {
-  interface Context {
-    touchgal: TouchGalAPI
-    gameCache: GameCache
-  }
+interface Dependencies {
+  touchgal: TouchGalAPI
+  gameCache: GameCache
 }
 
-export const name = 'checkgal'
-export const inject = ['touchgal', 'gameCache']
+export function apply(ctx: Context, config: Config, deps: Dependencies) {
+  const { touchgal, gameCache } = deps
 
-export function apply(ctx: Context, config: Config) {
   ctx.command('查询gal <keyword:text>', '查询Galgame信息')
     .action(async ({ session }, keyword) => {
       if (!session) return '该指令只能在聊天环境中使用。'
@@ -23,16 +18,16 @@ export function apply(ctx: Context, config: Config) {
 
       await session.send('正在查询，请稍候...')
 
-      const results = await ctx.touchgal.searchGame(keyword, config)
+      const results = await touchgal.searchGame(keyword, config)
       if (!results.length) {
         return `未找到关于“${keyword}”的任何游戏。`
       }
 
       // 缓存结果
-      results.forEach(game => ctx.gameCache.set(game.id, game))
+      results.forEach(game => gameCache.set(game.id, game))
 
       for (const game of results) {
-        const imageBuffer = await ctx.touchgal.downloadAndConvertImage(game.banner)
+        const imageBuffer = await touchgal.downloadAndConvertImage(game.banner)
         const imageElement = imageBuffer
           ? h.image(imageBuffer, 'image/jpeg')
           : h('text', { content: '封面图加载失败' })
@@ -53,28 +48,28 @@ export function apply(ctx: Context, config: Config) {
       if (!session) return '该指令只能在聊天环境中使用。'
       if (!id) return '请输入游戏ID。'
 
-      let gameInfo = ctx.gameCache.get(id)
+      let gameInfo = gameCache.get(id)
 
       // 如果缓存中没有，尝试重新获取
       if (!gameInfo) {
         await session.send('缓存中未找到该游戏信息，正在尝试重新搜索...')
-        const results = await ctx.touchgal.searchGame(String(id), config)
+        const results = await touchgal.searchGame(String(id), config)
         const foundGame = results.find(g => g.id === id)
         if (foundGame) {
           gameInfo = foundGame
-          ctx.gameCache.set(id, gameInfo)
+          gameCache.set(id, gameInfo)
         } else {
           await session.send(`无法获取游戏“${id}”的详细信息，但仍会尝试获取下载链接...`)
         }
       }
 
-      const downloads = await ctx.touchgal.getDownloads(id)
+      const downloads = await touchgal.getDownloads(id)
       if (!downloads.length) {
         return `未找到ID为 ${id} 的下载资源。`
       }
 
       const gameTitle = gameInfo ? `游戏: ${gameInfo.name} (ID: ${id})` : `游戏ID: ${id}`
-      const imageBuffer = gameInfo ? await ctx.touchgal.downloadAndConvertImage(gameInfo.banner) : null
+      const imageBuffer = gameInfo ? await touchgal.downloadAndConvertImage(gameInfo.banner) : null
 
       // 对于单条消息，直接发送 Buffer 是最高效的
       if (imageBuffer) {

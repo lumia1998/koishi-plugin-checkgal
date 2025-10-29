@@ -12,12 +12,8 @@ export function apply(ctx: Context, config: Config) {
   const api = new TouchGalAPI(ctx)
   const cache = new GameCache()
 
-  // 将服务挂载到上下文中
-  ctx.provide('touchgal', api)
-  ctx.provide('gameCache', cache)
-
-  // 注册指令
-  ctx.plugin(applyCommands, config)
+  // 注册指令，并将 api 和 cache 作为依赖传入
+  applyCommands(ctx, config, { touchgal: api, gameCache: cache })
 
   // 在插件停用时清理缓存
   ctx.on('dispose', () => {
