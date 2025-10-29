@@ -12,6 +12,7 @@ declare module 'koishi' {
   }
 }
 
+export const name = ['touchgal', 'gameCache']
 export const inject = ['touchgal', 'gameCache']
 
 export function apply(ctx: Context, config: Config) {
@@ -30,26 +31,20 @@ export function apply(ctx: Context, config: Config) {
       // 缓存结果
       results.forEach(game => ctx.gameCache.set(game.id, game))
 
-      // 仅在合并转发中发送文本信息
-      const forwardMessages = results.map(game => {
+      for (const game of results) {
+        const imageBuffer = await ctx.touchgal.downloadAndConvertImage(game.banner)
+        const imageElement = imageBuffer
+          ? h.image(imageBuffer, 'image/jpeg')
+          : h('text', { content: '封面图加载失败' })
+
         const content = [
+          imageElement,
           `ID: ${game.id}`,
           `名称: ${game.name}`,
           `平台: ${game.platform.join(', ')}`,
           `语言: ${game.language.join(', ')}`,
         ].join('\n')
-        return h('message', { userId: session.bot.selfId, nickname: 'CheckGal Bot' }, content)
-      })
-
-      await session.send(h('message', { forward: true }, forwardMessages))
-      await session.send('封面图将单独发送：')
-
-      // 单独逐张发送图片
-      for (const game of results) {
-        const imageBuffer = await ctx.touchgal.downloadAndConvertImage(game.banner)
-        if (imageBuffer) {
-          await session.send(h('image', { src: imageBuffer, mime: 'image/jpeg' }))
-        }
+        await session.send(content)
       }
     })
 
@@ -83,7 +78,7 @@ export function apply(ctx: Context, config: Config) {
 
       // 对于单条消息，直接发送 Buffer 是最高效的
       if (imageBuffer) {
-        await session.send(h('image', { src: imageBuffer, mime: 'image/jpeg' }))
+        await session.send(h.image(imageBuffer, 'image/jpeg'))
       }
 
       const header = [
