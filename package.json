@@ -1,0 +1,31 @@
+{
+  "name": "koishi-plugin-checkgal",
+  "version": "1.3.3",
+  "description": "个人测试请勿使用",
+  "main": "lib/index.js",
+  "typings": "lib/index.d.ts",
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [
+    "chatbot",
+    "koishi",
+    "plugin",
+    "galgame"
+  ],
+  "author": "Roo",
+  "license": "AGPL-3.0",
+  "koishi": {
+    "name": "checkgal"
+  },
+  "devDependencies": {
+    "koishi": "^4.18.9",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "sharp": "^0.34.4"
+  }
+}

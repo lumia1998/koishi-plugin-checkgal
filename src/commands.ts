@@ -1,0 +1,107 @@
+import { Context, h } from 'koishi'
+import { Config } from './config'
+import { TouchGalAPI } from './api'
+import { GameCache } from './cache'
+import { GameInfo } from './types'
+
+// 注册服务
+declare module 'koishi' {
+  interface Context {
+    touchgal: TouchGalAPI
+    gameCache: GameCache
+  }
+}
+
+export const inject = ['touchgal', 'gameCache']
+
+export function apply(ctx: Context, config: Config) {
+  ctx.command('查询gal <keyword:text>', '查询Galgame信息')
+    .action(async ({ session }, keyword) => {
+      if (!session) return '该指令只能在聊天环境中使用。'
+      if (!keyword) return '请输入要查询的游戏名。'
+
+      await session.send('正在查询，请稍候...')
+
+      const results = await ctx.touchgal.searchGame(keyword, config)
+      if (!results.length) {
+        return `未找到关于“${keyword}”的任何游戏。`
+      }
+
+      // 缓存结果
+      results.forEach(game => ctx.gameCache.set(game.id, game))
+
+      // 并发下载并转换所有图片
+      const imagePaths = await Promise.all(
+        results.map(game => ctx.touchgal.downloadAndConvertImage(game.banner))
+      )
+
+      const forwardMessages = results.map((game, index) => {
+        const imagePath = imagePaths[index]
+        const imageElement = imagePath
+          ? h('image', { url: imagePath })
+          : h('text', { content: '封面图加载失败' })
+
+        const content = [
+          imageElement,
+          `ID: ${game.id}`,
+          `名称: ${game.name}`,
+          `平台: ${game.platform.join(', ')}`,
+          `语言: ${game.language.join(', ')}`,
+        ].join('\n')
+        return h('message', { userId: session.bot.selfId, nickname: 'CheckGal Bot' }, content)
+      })
+
+      await session.send(h('message', { forward: true }, forwardMessages))
+    })
+
+  ctx.command('下载gal <id:number>', '获取Galgame下载地址')
+    .action(async ({ session }, id) => {
+      if (!session) return '该指令只能在聊天环境中使用。'
+      if (!id) return '请输入游戏ID。'
+
+      let gameInfo = ctx.gameCache.get(id)
+
+      // 如果缓存中没有，尝试重新获取
+      if (!gameInfo) {
+        await session.send('缓存中未找到该游戏信息，正在尝试重新搜索...')
+        const results = await ctx.touchgal.searchGame(String(id), config)
+        const foundGame = results.find(g => g.id === id)
+        if (foundGame) {
+          gameInfo = foundGame
+          ctx.gameCache.set(id, gameInfo)
+        } else {
+          await session.send(`无法获取游戏“${id}”的详细信息，但仍会尝试获取下载链接...`)
+        }
+      }
+
+      const downloads = await ctx.touchgal.getDownloads(id)
+      if (!downloads.length) {
+        return `未找到ID为 ${id} 的下载资源。`
+      }
+
+      const gameTitle = gameInfo ? `游戏: ${gameInfo.name} (ID: ${id})` : `游戏ID: ${id}`
+      const imagePath = gameInfo ? await ctx.touchgal.downloadAndConvertImage(gameInfo.banner) : null
+      const imageElement = imagePath
+        ? h('image', { url: imagePath })
+        : h('text', { content: gameInfo ? '封面图加载失败' : '' })
+
+      const header = [
+        imageElement,
+        gameTitle,
+        `共找到 ${downloads.length} 个下载资源：`,
+      ].filter(Boolean).join('\n')
+
+      const downloadDetails = downloads.map(res => {
+        return [
+          `› 名称: ${res.name}`,
+          `  平台: ${res.platform.join(', ')} | 大小: ${res.size}`,
+          `  下载地址: ${res.content}`,
+          `  提取码: ${res.code || '无'}`,
+          `  解压码: ${res.password || '无'}`,
+          `  备注: ${res.note || '无'}`,
+        ].join('\n')
+      }).join('\n\n')
+
+      return `${header}\n\n${downloadDetails}`
+    })
+}
