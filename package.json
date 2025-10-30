@@ -1,6 +1,6 @@
 {
   "name": "koishi-plugin-checkgal",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "description": "基于TouchGal API的Galgame信息查询与下载插件",
     "contributors": [
     "lumia.wang <fenglian19980510@gmail.com>"
@@ -11,13 +11,13 @@
     "lib",
     "dist"
   ],
-  "homepage": "https://github.com/lumiawang/koishi-plugin-checkgal",
+  "homepage": "https://github.com/lumia1998/koishi-plugin-checkgal",
   "bugs": {
-    "url": "https://github.com/lumiawang/koishi-plugin-checkgal/issues"
+    "url": "https://github.com/lumia1998/koishi-plugin-checkgal/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lumiawang/koishi-plugin-checkgal.git"
+    "url": "git+https://github.com/lumia1998/koishi-plugin-checkgal.git"
   },
   "license": "AGPL-3.0",
   "keywords": [
