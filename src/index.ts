@@ -5,6 +5,7 @@ import { GameCache } from './cache'
 import { apply as applyCommands } from './commands'
 
 export const name = 'checkgal'
+export const inject = ['ffmpeg']
 export { Config }
 
 export function apply(ctx: Context, config: Config) {

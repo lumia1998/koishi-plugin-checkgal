@@ -1,13 +1,15 @@
 import { Context } from 'koishi'
 import { GameInfo, DownloadResource } from './types'
 import { Config } from './config'
-import sharp from 'sharp'
+import {} from 'koishi-plugin-ffmpeg'
 
 export class TouchGalAPI {
   private http
   private logger
+  private ctx: Context
 
   constructor(ctx: Context) {
+    this.ctx = ctx
     this.http = ctx.http
     this.logger = ctx.logger('checkgal-api')
   }
@@ -73,9 +75,15 @@ export class TouchGalAPI {
       const response = await this.http.get(url, {
         responseType: 'arraybuffer',
       })
-      if (!(response instanceof ArrayBuffer)) return null
+      const imageBuffer = Buffer.from(response)
 
-      return sharp(Buffer.from(response)).jpeg().toBuffer()
+      // 使用 ffmpeg 将图片转换为 jpeg
+      const jpegBuffer = await this.ctx.ffmpeg.builder()
+        .input(imageBuffer)
+        .outputOption('-f', 'mjpeg')
+        .run('buffer')
+
+      return jpegBuffer
     } catch (error) {
       this.logger.error(`Failed to download or convert image from ${url}:`, error)
       return null
