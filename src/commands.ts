@@ -20,12 +20,14 @@ export function apply(ctx: Context, config: Config, deps: Dependencies) {
 
       const results = await touchgal.searchGame(keyword, config)
       if (!results.length) {
-        return `未找到关于“${keyword}”的任何游戏。`
+        return `未找到关于"${keyword}"的任何游戏。`
       }
 
       // 缓存结果
       results.forEach(game => gameCache.set(game.id, game))
 
+      // 构建合并转发消息
+      const forwardMessages = []
       for (const game of results) {
         const imageBuffer = await touchgal.downloadAndConvertImage(game.banner)
         const imageElement = imageBuffer
@@ -39,8 +41,12 @@ export function apply(ctx: Context, config: Config, deps: Dependencies) {
           `平台: ${game.platform.join(', ')}`,
           `语言: ${game.language.join(', ')}`,
         ].join('\n')
-        await session.send(content)
+
+        forwardMessages.push(h('message', {}, content))
       }
+
+      // 发送合并转发消息
+      await session.send(h('message', { forward: true }, forwardMessages))
     })
 
   ctx.command('下载gal <id:number>', '获取Galgame下载地址')
@@ -59,7 +65,7 @@ export function apply(ctx: Context, config: Config, deps: Dependencies) {
           gameInfo = foundGame
           gameCache.set(id, gameInfo)
         } else {
-          await session.send(`无法获取游戏“${id}”的详细信息，但仍会尝试获取下载链接...`)
+          await session.send(`无法获取游戏"${id}"的详细信息，但仍会尝试获取下载链接...`)
         }
       }
 
@@ -71,27 +77,39 @@ export function apply(ctx: Context, config: Config, deps: Dependencies) {
       const gameTitle = gameInfo ? `游戏: ${gameInfo.name} (ID: ${id})` : `游戏ID: ${id}`
       const imageBuffer = gameInfo ? await touchgal.downloadAndConvertImage(gameInfo.banner) : null
 
-      // 对于单条消息，直接发送 Buffer 是最高效的
+      // 构建合并转发消息
+      const forwardMessages = []
+
+      // 第一条消息：游戏标题和封面
       if (imageBuffer) {
-        await session.send(h.image(imageBuffer, 'image/jpeg'))
+        const headerContent = [
+          h.image(imageBuffer, 'image/jpeg'),
+          gameTitle,
+          `共找到 ${downloads.length} 个下载资源`,
+        ].join('\n')
+        forwardMessages.push(h('message', {}, headerContent))
+      } else {
+        const headerContent = [
+          gameTitle,
+          `共找到 ${downloads.length} 个下载资源`,
+        ].join('\n')
+        forwardMessages.push(h('message', {}, headerContent))
       }
 
-      const header = [
-        gameTitle,
-        `共找到 ${downloads.length} 个下载资源：`,
-      ].filter(Boolean).join('\n')
-
-      const downloadDetails = downloads.map(res => {
-        return [
-          `› 名称: ${res.name}`,
-          `  平台: ${res.platform.join(', ')} | 大小: ${res.size}`,
-          `  下载地址: ${res.content}`,
-          `  提取码: ${res.code || '无'}`,
-          `  解压码: ${res.password || '无'}`,
-          `  备注: ${res.note || '无'}`,
+      // 后续消息：每个下载资源一条消息
+      for (const res of downloads) {
+        const resContent = [
+          `名称: ${res.name}`,
+          `平台: ${res.platform.join(', ')} | 大小: ${res.size}`,
+          `下载地址: ${res.content}`,
+          `提取码: ${res.code || '无'}`,
+          `解压码: ${res.password || '无'}`,
+          `备注: ${res.note || '无'}`,
         ].join('\n')
-      }).join('\n\n')
+        forwardMessages.push(h('message', {}, resContent))
+      }
 
-      return `${header}\n\n${downloadDetails}`
+      // 发送合并转发消息
+      await session.send(h('message', { forward: true }, forwardMessages))
     })
 }
