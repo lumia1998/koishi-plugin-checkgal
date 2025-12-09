@@ -26,27 +26,51 @@ export function apply(ctx: Context, config: Config, deps: Dependencies) {
       // 缓存结果
       results.forEach(game => gameCache.set(game.id, game))
 
-      // 构建合并转发消息
-      const forwardMessages = []
-      for (const game of results) {
-        const imageBuffer = await touchgal.downloadAndConvertImage(game.banner)
-        const imageElement = imageBuffer
-          ? h.image(imageBuffer, 'image/jpeg')
-          : h('text', { content: '封面图加载失败' })
+      // 判断是否使用合并转发
+      if (config.isForward && (session.platform === 'onebot' || session.platform === 'red')) {
+        // 使用合并转发
+        const messageElements = []
+        for (const game of results) {
+          const imageBuffer = await touchgal.downloadAndConvertImage(game.banner)
+          const imageElement = imageBuffer
+            ? h.image(imageBuffer, 'image/jpeg')
+            : h('text', { content: '封面图加载失败' })
 
-        const content = [
-          imageElement,
-          `ID: ${game.id}`,
-          `名称: ${game.name}`,
-          `平台: ${game.platform.join(', ')}`,
-          `语言: ${game.language.join(', ')}`,
-        ].join('\n')
+          const content = [
+            imageElement,
+            `ID: ${game.id}`,
+            `名称: ${game.name}`,
+            `平台: ${game.platform.join(', ')}`,
+            `语言: ${game.language.join(', ')}`,
+          ].join('\n')
 
-        forwardMessages.push(h('message', {}, content))
+          // 包装成 message 元素
+          messageElements.push(h('message', {
+            userId: session.userId,
+            nickname: session.author?.nickname || session.username,
+          }, h.parse(content)))
+        }
+
+        // 使用 figure 元素发送合并转发
+        await session.send(h('figure', { children: messageElements }))
+      } else {
+        // 普通发送方式
+        for (const game of results) {
+          const imageBuffer = await touchgal.downloadAndConvertImage(game.banner)
+          const imageElement = imageBuffer
+            ? h.image(imageBuffer, 'image/jpeg')
+            : h('text', { content: '封面图加载失败' })
+
+          const content = [
+            imageElement,
+            `ID: ${game.id}`,
+            `名称: ${game.name}`,
+            `平台: ${game.platform.join(', ')}`,
+            `语言: ${game.language.join(', ')}`,
+          ].join('\n')
+          await session.send(content)
+        }
       }
-
-      // 发送合并转发消息
-      await session.send(h('message', { forward: true }, forwardMessages))
     })
 
   ctx.command('下载gal <id:number>', '获取Galgame下载地址')
@@ -77,39 +101,74 @@ export function apply(ctx: Context, config: Config, deps: Dependencies) {
       const gameTitle = gameInfo ? `游戏: ${gameInfo.name} (ID: ${id})` : `游戏ID: ${id}`
       const imageBuffer = gameInfo ? await touchgal.downloadAndConvertImage(gameInfo.banner) : null
 
-      // 构建合并转发消息
-      const forwardMessages = []
+      // 判断是否使用合并转发
+      if (config.isForward && (session.platform === 'onebot' || session.platform === 'red')) {
+        // 使用合并转发
+        const messageElements = []
 
-      // 第一条消息：游戏标题和封面
-      if (imageBuffer) {
-        const headerContent = [
-          h.image(imageBuffer, 'image/jpeg'),
-          gameTitle,
-          `共找到 ${downloads.length} 个下载资源`,
-        ].join('\n')
-        forwardMessages.push(h('message', {}, headerContent))
+        // 第一条消息：游戏标题和封面
+        if (imageBuffer) {
+          const headerContent = [
+            h.image(imageBuffer, 'image/jpeg'),
+            gameTitle,
+            `共找到 ${downloads.length} 个下载资源`,
+          ].join('\n')
+          messageElements.push(h('message', {
+            userId: session.userId,
+            nickname: session.author?.nickname || session.username,
+          }, h.parse(headerContent)))
+        } else {
+          const headerContent = [
+            gameTitle,
+            `共找到 ${downloads.length} 个下载资源`,
+          ].join('\n')
+          messageElements.push(h('message', {
+            userId: session.userId,
+            nickname: session.author?.nickname || session.username,
+          }, h.parse(headerContent)))
+        }
+
+        // 后续消息：每个下载资源一条消息
+        for (const res of downloads) {
+          const resContent = [
+            `名称: ${res.name}`,
+            `平台: ${res.platform.join(', ')} | 大小: ${res.size}`,
+            `下载地址: ${res.content}`,
+            `提取码: ${res.code || '无'}`,
+            `解压码: ${res.password || '无'}`,
+            `备注: ${res.note || '无'}`,
+          ].join('\n')
+          messageElements.push(h('message', {
+            userId: session.userId,
+            nickname: session.author?.nickname || session.username,
+          }, resContent))
+        }
+
+        // 使用 figure 元素发送合并转发
+        await session.send(h('figure', { children: messageElements }))
       } else {
-        const headerContent = [
+        // 普通发送方式
+        if (imageBuffer) {
+          await session.send(h.image(imageBuffer, 'image/jpeg'))
+        }
+
+        const header = [
           gameTitle,
-          `共找到 ${downloads.length} 个下载资源`,
-        ].join('\n')
-        forwardMessages.push(h('message', {}, headerContent))
-      }
+          `共找到 ${downloads.length} 个下载资源：`,
+        ].filter(Boolean).join('\n')
 
-      // 后续消息：每个下载资源一条消息
-      for (const res of downloads) {
-        const resContent = [
-          `名称: ${res.name}`,
-          `平台: ${res.platform.join(', ')} | 大小: ${res.size}`,
-          `下载地址: ${res.content}`,
-          `提取码: ${res.code || '无'}`,
-          `解压码: ${res.password || '无'}`,
-          `备注: ${res.note || '无'}`,
-        ].join('\n')
-        forwardMessages.push(h('message', {}, resContent))
-      }
+        const downloadDetails = downloads.map(res => {
+          return [
+            `› 名称: ${res.name}`,
+            `  平台: ${res.platform.join(', ')} | 大小: ${res.size}`,
+            `  下载地址: ${res.content}`,
+            `  提取码: ${res.code || '无'}`,
+            `  解压码: ${res.password || '无'}`,
+            `  备注: ${res.note || '无'}`,
+          ].join('\n')
+        }).join('\n\n')
 
-      // 发送合并转发消息
-      await session.send(h('message', { forward: true }, forwardMessages))
+        return `${header}\n\n${downloadDetails}`
+      }
     })
 }
