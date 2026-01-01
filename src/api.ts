@@ -1,7 +1,7 @@
 import { Context } from 'koishi'
 import { GameInfo, DownloadResource } from './types'
 import { Config } from './config'
-import {} from 'koishi-plugin-ffmpeg'
+import { } from 'koishi-plugin-ffmpeg'
 
 export class TouchGalAPI {
   private http
@@ -15,7 +15,7 @@ export class TouchGalAPI {
   }
 
   async searchGame(keyword: string, config: Config): Promise<GameInfo[]> {
-    const url = 'https://www.touchgal.us/api/search'
+    const url = 'https://www.touchgal.top/api/search'
     const headers = { 'Content-Type': 'application/json' }
     const queryString = JSON.stringify([{ type: 'keyword', name: keyword }])
 
@@ -57,7 +57,7 @@ export class TouchGalAPI {
   }
 
   async getDownloads(patchId: number): Promise<DownloadResource[]> {
-    const url = 'https://www.touchgal.us/api/patch/resource'
+    const url = 'https://www.touchgal.top/api/patch/resource'
     try {
       const responseData = await this.http.get<DownloadResource[]>(url, {
         params: { patchId },
